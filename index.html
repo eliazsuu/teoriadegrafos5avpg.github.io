@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teoremas de Grafos - Práctica Interactiva</title>
+  <style>
+    :root {
+      --bg-color: #0d0d0d;
+      --card-color: #1a1a1a;
+      --accent-color: #00adb5;
+      --text-color: #eeeeee;
+      --muted-color: #888888;
+      --border-color: #2a2a2a;
+    }
+
+    * { box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+    body { margin: 0; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 40px; }
+    .container { display: grid; grid-template-columns: 350px 1fr; gap: 30px; width: 100%; max-width: 1200px; }
+    .panel { background-color: var(--card-color); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); border: 1px solid var(--border-color); }
+    h1 { font-size: 1.5em; color: var(--accent-color); margin-bottom: 10px; }
+    label { display: block; margin-top: 15px; color: var(--muted-color); font-size: 0.9em; }
+    select, input, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: #111; color: var(--text-color); margin-top: 5px; font-size: 1em; }
+    button { cursor: pointer; transition: 0.3s; }
+    button:hover { background-color: var(--accent-color); color: #111; }
+    .controls { display: flex; gap: 10px; margin-top: 15px; }
+    #svgWrap { background: radial-gradient(circle, #1a1a1a, #0d0d0d); border-radius: 10px; padding: 15px; min-height: 420px; display: flex; align-items: center; justify-content: center; }
+    svg { width: 100%; height: 100%; max-height: 600px; }
+    .exercise, .feedback { background-color: #111; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px solid var(--border-color); }
+    .feedback.ok { color: #00ff88; }
+    .feedback.bad { color: #ff5555; }
+    footer { grid-column: 1 / -1; text-align: center; margin-top: 20px; color: var(--muted-color); font-size: 0.8em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <h1>Teoremas de Grafos — Práctica</h1>
+      <label for="theorem">Teorema / concepto</label>
+      <select id="theorem">
+        <option value="handshake">Lema del apretón de manos</option>
+        <option value="eulerian">Caminos y circuitos eulerianos</option>
+      </select>
+      <label for="nNodes">Número de vértices (n)</label>
+      <input id="nNodes" type="number" min="3" max="10" value="6" />
+      <div class="controls">
+        <button id="gen">Generar ejercicio</button>
+        <button id="newGraph">Nuevo grafo</button>
+      </div>
+      <div class="exercise" id="exerciseText">Pulsa “Generar ejercicio” para comenzar.</div>
+      <label for="answer">Tu respuesta</label>
+      <input id="answer" placeholder="Ejemplo: 7 o Sí/No" />
+      <div class="controls">
+        <button id="check">Comprobar</button>
+        <button id="showSol">Mostrar solución</button>
+      </div>
+      <div id="feedback" class="feedback"></div>
+    </div>
+
+    <div class="panel">
+      <div id="svgWrap">
+        <svg id="canvas" viewBox="0 0 800 600"></svg>
+      </div>
+      <footer>hecho por ricardo velez loubet</footer>
+    </div>
+  </div>
+
+  <script>
+    function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+    function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+    const svg=document.getElementById('canvas');
+    const genBtn=document.getElementById('gen');
+    const newGraphBtn=document.getElementById('newGraph');
+    const checkBtn=document.getElementById('check');
+    const showSolBtn=document.getElementById('showSol');
+    const exerciseText=document.getElementById('exerciseText');
+    const feedback=document.getElementById('feedback');
+    const info=document.getElementById('info');
+
+    let graph={n:0,edges:[],adj:[]};
+    let currentQuestion=null;
+
+    function generarGrafo(n,pConnect){
+      const adj=Array.from({length:n},()=>[]);
+      const edges=[];
+      for(let i=0;i<n;i++){
+        for(let j=i+1;j<n;j++){
+          if(Math.random()<pConnect){
+            adj[i].push(j);adj[j].push(i);edges.push([i,j]);
+          }
+        }
+      }
+      return {n,adj,edges};
+    }
+
+    function drawGraph(g){
+      svg.innerHTML='';
+      const w=800,h=600,padding=60;
+      const positions=[];
+      for(let i=0;i<g.n;i++){
+        let x=randInt(padding,w-padding),y=randInt(padding,h-padding);
+        positions.push({x,y});
+      }
+      for(const [i,j] of g.edges){
+        const a=positions[i],b=positions[j];
+        const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1',a.x);line.setAttribute('y1',a.y);line.setAttribute('x2',b.x);line.setAttribute('y2',b.y);
+        line.setAttribute('stroke','rgba(255,255,255,0.5)');line.setAttribute('stroke-width','2');svg.appendChild(line);
+      }
+      for(let i=0;i<g.n;i++){
+        const p=positions[i];
+        const gEl=document.createElementNS('http://www.w3.org/2000/svg','g');
+        const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r','16');c.setAttribute('fill','#222');c.setAttribute('stroke','#00adb5');c.setAttribute('stroke-width','2');
+        const text=document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x',p.x);text.setAttribute('y',p.y+5);text.setAttribute('text-anchor','middle');text.setAttribute('font-size','12');text.setAttribute('fill','#00adb5');text.textContent=i+1;
+        gEl.appendChild(c);gEl.appendChild(text);svg.appendChild(gEl);
+      }
+    }
+
+    function sumDegrees(adj){return adj.reduce((s,a)=>s+a.length,0);}
+
+    function generarEjercicio(){
+      const n=parseInt(document.getElementById('nNodes').value)||6;
+      const p=0.4+Math.random()*0.2;
+      graph=generarGrafo(n,p);
+      drawGraph(graph);
+      const type=Math.random()<0.5?'numEdges':'sumDegrees';
+      if(type==='numEdges'){currentQuestion={type:'numEdges',answer:graph.edges.length,text:`¿Cuántas aristas tiene el grafo?`};}
+      else{currentQuestion={type:'sumDegrees',answer:sumDegrees(graph.adj),text:`¿Cuál es la suma de todos los grados de los vértices?`};}
+      exerciseText.textContent=currentQuestion.text;
+      feedback.textContent='';
+      document.getElementById('answer').value='';
+    }
+
+    genBtn.addEventListener('click',generarEjercicio);
+    newGraphBtn.addEventListener('click',()=>{ if(graph.n) drawGraph(graph); });
+    checkBtn.addEventListener('click',()=>{
+      if(!currentQuestion){feedback.className='feedback bad';feedback.textContent='Genera primero un ejercicio.';return;}
+      const ans=document.getElementById('answer').value.trim();
+      if(ans==currentQuestion.answer){feedback.className='feedback ok';feedback.textContent='Correcto ✅';}
+      else{feedback.className='feedback bad';feedback.textContent=`Incorrecto. Esperado: ${currentQuestion.answer}`;}
+    });
+    showSolBtn.addEventListener('click',()=>{ if(currentQuestion) feedback.textContent=`Solución: ${currentQuestion.answer}`;});
+  </script>
+</body>
+</html>
